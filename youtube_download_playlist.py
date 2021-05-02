@@ -4,10 +4,10 @@ from pytube import Playlist
 import os
 import glob
 from time import sleep
+import ffmpeg
 from multiprocessing import Process
 import configparser
 import shutil
-from ffmpy import FFmpeg
 global PLAYLIST_URLS, VIDEO_URLS, TARGET_RESOLUTION, NUMBER_OF_THREADS, DELAY_MS, MAX_RETRIES
 # by Jakub Grzana
 
@@ -64,7 +64,7 @@ TARGET_BITRATE = int(config['Default']['TARGET_BITRATE']) if 'TARGET_BITRATE' in
 # Requirements:
 #   Python 3.9.0
 #   pytube 10.7.2
-#   ffmpy, don't know the version
+#   ffmpeg, don't know the version
 
 verbose_downloads = int(config['Default']['VERBOSE_DOWNLOADS']) if 'VERBOSE_DOWNLOADS' in config['Default'] else 1 # each Xth prompt will be displayed
 
@@ -78,13 +78,15 @@ def EnsureDir(path):
         os.makedirs(path)
 
 def merge_streams(output_path, video_stream_filename, audio_stream_filename):
-    ff = FFmpeg (
-        inputs={video_stream_filename: None, audio_stream_filename: None},
-        outputs={output_path: '-c:v h264 -c:a ac3'}
-    )
-    null = open(os.devnull, 'w')
-    ff.run(stdout=null,stderr=null)
-    null.close()
+    video = ffmpeg.input(video_stream_filename).video
+    audio = ffmpeg.input(audio_stream_filename).audio
+    ffmpeg.output(
+        video,
+        audio,
+        output_path,
+        vcodec='copy',
+        acodec='copy',
+    ).run(quiet=True)
 
 # TODO major feature  - support for non-progressive formats
 def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
