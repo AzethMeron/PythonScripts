@@ -83,15 +83,17 @@ def RemoveDir(path):
 
 def get_video_stream(streams, target_res, subtype):
     s = streams.filter(subtype=subtype)
-    if s.filter(res = target_res):
-        return s.filter(res = target_res).first()
+    if target_res:
+        if s.filter(res = target_res):
+            return s.filter(res = target_res).first()
     return s.order_by('resolution').desc().first()
     
 def get_audio_stream(streams, target_bitrate, subtype):
     s = streams.filter(subtype=subtype)
-    if s.filter(abr = target_bitrate):
-        return s.filter(abr = target_bitrate).first()
-    return s.order_by('bitrate').desc().first()
+    if target_bitrate:
+        if s.filter(abr = target_bitrate):
+            return s.filter(abr = target_bitrate).first()
+    return s.get_audio_only(subtype)
 
 def merge_streams(output_path, video_stream_filename, audio_stream_filename):
     video = ffmpeg.input(video_stream_filename).video
