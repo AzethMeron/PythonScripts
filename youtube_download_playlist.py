@@ -77,6 +77,22 @@ def EnsureDir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+def RemoveDir(path):
+    if os.path.exists(path):
+        shutil.rmtree(path)
+
+def get_video_stream(streams, target_res, subtype):
+    s = streams.filter(subtype=subtype)
+    if s.filter(res = target_res):
+        return s.filter(res = target_res).first()
+    return s.order_by('resolution').desc().first()
+    
+def get_audio_stream(streams, target_bitrate, subtype):
+    s = streams.filter(subtype=subtype)
+    if s.filter(abr = target_bitrate):
+        return s.filter(abr = target_bitrate).first()
+    return s.order_by('bitrate').desc().first()
+
 def merge_streams(output_path, video_stream_filename, audio_stream_filename):
     video = ffmpeg.input(video_stream_filename).video
     audio = ffmpeg.input(audio_stream_filename).audio
@@ -99,58 +115,42 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
             return False
     video_stream = None
     streams = video.streams
-    if target_res:
-        video_stream = streams.filter(progressive=True).filter(res=target_res).order_by('resolution')
-        if not video_stream:
-            video_stream = streams.filter(res=target_res).order_by('resolution')
-    if not video_stream:
-        video_stream = streams.order_by('resolution')
-    video_stream = video_stream.desc().first()
+    
+    video_stream = get_video_stream(streams.filter(type='video'), target_res, 'webm')
+    
     if video_stream.is_progressive:
         video_stream.download(output_path=path, filename=title, max_retries=retries)
     else:
-        audio_stream = None
-        audio_stream = streams.filter(type='audio').filter(abr=target_bitrate).first()
-        if not audio_stream:
-            audio_stream = streams.get_audio_only()
+        audio_stream = get_audio_stream(streams.filter(type='audio'), target_bitrate, 'webm')
         vid_file = video_stream.download(output_path=tmp_dir, filename="vid", max_retries=retries)
         audio_file = audio_stream.download(output_path=tmp_dir, filename="audio", max_retries=retries)
         fpath = ""
         if path:
             fpath = path + "/"
-        fpath = fpath + title + ".mkv"
+        fpath = fpath + title + ".webm"
         merge_streams(fpath, vid_file, audio_file)
     return False
 
 def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
     pid = os.getpid()
     i = 0
-    EnsureDir(str(pid))
     for video in videos:
-        EnsureDir(str(pid))
         try:
             video.check_availability()
         except Exception as e:
             print("Skipping. Unavailable video: " + video.title + "\nReason: " + str(e))
             sleep(delay*0.001 + 0.005)
-            shutil.rmtree(str(pid))
             continue
         if (i%verbose_downloads) == 0:
             print("Subprocess " + str(pid) + ": downloading " + str(i+1) + "/" + str(len(videos)))
         i = i + 1
         try:
-            if DownloadVideo(path, video, target_res, retries, str(pid), target_bitrate):
-                sleep(delay*0.001 + 0.005)
-                shutil.rmtree(str(pid))
-                continue
+            EnsureDir(str(pid))
+            DownloadVideo(path, video, target_res, retries, str(pid), target_bitrate)
         except Exception as e:
             print("Omitting due to error: " + str(e))
-            sleep(delay*0.001 + 0.005)
-            shutil.rmtree(str(pid))
-            continue
+        RemoveDir(str(pid))
         sleep(delay*0.001 + 0.005)
-        shutil.rmtree(str(pid))
-    shutil.rmtree(str(pid))
 
 def DownloadPlaylist(playlist, target_res):
     dir = playlist.title.replace('/',' ')
