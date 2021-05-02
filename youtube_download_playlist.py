@@ -77,6 +77,15 @@ def EnsureDir(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+def merge_streams(output_path, video_stream_filename, audio_stream_filename):
+    ff = FFmpeg (
+        inputs={video_stream_filename: None, audio_stream_filename: None},
+        outputs={output_path: '-c:v h264 -c:a ac3'}
+    )
+    null = open(os.devnull, 'w')
+    ff.run(stdout=null,stderr=null)
+    null.close()
+
 # TODO major feature  - support for non-progressive formats
 def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
     title = video.title.replace('/',' ').replace('|',' ')
@@ -108,15 +117,7 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
         if path:
             fpath = path + "/"
         fpath = fpath + title + ".mp4"
-        
-        ff = FFmpeg (
-            inputs={vid_file: None, audio_file: None},
-            outputs={fpath: '-c:v h264 -c:a ac3'}
-        )
-        null = open(os.devnull, 'w')
-        ff.run(stdout=null,stderr=null)
-        null.close()
-        
+        merge_streams(fpath, vid_file, audio_file)
     return False
 
 def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
@@ -129,19 +130,25 @@ def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
             video.check_availability()
         except Exception as e:
             print("Skipping. Unavailable video: " + video.title + "\nReason: " + str(e))
+            sleep(delay*0.001 + 0.005)
+            shutil.rmtree(str(pid))
             continue
         if (i%verbose_downloads) == 0:
             print("Subprocess " + str(pid) + ": downloading " + str(i+1) + "/" + str(len(videos)))
         i = i + 1
         try:
             if DownloadVideo(path, video, target_res, retries, str(pid), target_bitrate):
+                sleep(delay*0.001 + 0.005)
+                shutil.rmtree(str(pid))
                 continue
         except Exception as e:
             print("Omitting due to error: " + str(e))
+            sleep(delay*0.001 + 0.005)
+            shutil.rmtree(str(pid))
             continue
-        if delay > 0:
-            sleep(delay*0.001)
+        sleep(delay*0.001 + 0.005)
         shutil.rmtree(str(pid))
+    shutil.rmtree(str(pid))
 
 def DownloadPlaylist(playlist, target_res):
     dir = playlist.title.replace('/',' ')
