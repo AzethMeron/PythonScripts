@@ -8,6 +8,7 @@ import ffmpeg
 from multiprocessing import Process
 import configparser
 import shutil
+import re
 global PLAYLIST_URLS, VIDEO_URLS, TARGET_RESOLUTION, NUMBER_OF_THREADS, DELAY_MS, MAX_RETRIES
 # by Jakub Grzana
 
@@ -108,30 +109,35 @@ def merge_streams(output_path, video_stream_filename, audio_stream_filename):
 
 # TODO major feature  - support for non-progressive formats
 def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
-    title = video.title.replace('/',' ').replace('|',' ')
-    if path:
-        if glob.glob(path + "/" + title + ".*"):
-            return False
-    else:
-        if glob.glob(title + ".*"):
-            return False
-    video_stream = None
-    streams = video.streams
-    
-    video_stream = get_video_stream(streams.filter(type='video'), target_res, 'webm')
-    
-    if video_stream.is_progressive:
-        video_stream.download(output_path=path, filename=title, max_retries=retries)
-    else:
-        audio_stream = get_audio_stream(streams.filter(type='audio'), target_bitrate, 'webm')
-        vid_file = video_stream.download(output_path=tmp_dir, filename="vid", max_retries=retries)
-        audio_file = audio_stream.download(output_path=tmp_dir, filename="audio", max_retries=retries)
-        fpath = ""
+    for extension in [ 'webm', 'mp4' ]:
+        title = re.sub(r'\W+', ' ', video.title)
         if path:
-            fpath = path + "/"
-        fpath = fpath + title + ".webm"
-        merge_streams(fpath, vid_file, audio_file)
-    return False
+            if glob.glob(path + "/" + title + ".*"):
+                return False
+        else:
+            if glob.glob(title + ".*"):
+                return False
+        video_stream = None
+        streams = video.streams
+        
+        video_stream = get_video_stream(streams.filter(type='video'), target_res, extension)
+        
+        if not video_stream:
+            continue
+        
+        if video_stream.is_progressive:
+            video_stream.download(output_path=path, filename=title, max_retries=retries)
+        else:
+            audio_stream = get_audio_stream(streams.filter(type='audio'), target_bitrate, extension)
+            vid_file = video_stream.download(output_path=tmp_dir, filename="vid", max_retries=retries)
+            audio_file = audio_stream.download(output_path=tmp_dir, filename="audio", max_retries=retries)
+            fpath = ""
+            if path:
+                fpath = path + "/"
+            fpath = fpath + title + "." + extension
+            merge_streams(fpath, vid_file, audio_file)
+        return False
+    print("Couldn't find proper streams for none of supported extensions")
 
 def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
     pid = os.getpid()
