@@ -7,7 +7,7 @@ from time import sleep
 from multiprocessing import Process
 import configparser
 import shutil
-import ffmpeg
+from ffmpy import FFmpeg
 global PLAYLIST_URLS, VIDEO_URLS, TARGET_RESOLUTION, NUMBER_OF_THREADS, DELAY_MS, MAX_RETRIES
 # by Jakub Grzana
 
@@ -64,7 +64,7 @@ TARGET_BITRATE = int(config['Default']['TARGET_BITRATE']) if 'TARGET_BITRATE' in
 # Requirements:
 #   Python 3.9.0
 #   pytube 10.7.2
-#   ffmpeg, don't know the version
+#   ffmpy, don't know the version
 
 verbose_downloads = int(config['Default']['VERBOSE_DOWNLOADS']) if 'VERBOSE_DOWNLOADS' in config['Default'] else 1 # each Xth prompt will be displayed
 
@@ -101,14 +101,22 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
         audio_stream = None
         audio_stream = streams.filter(type='audio').filter(abr=target_bitrate).first()
         if not audio_stream:
-            audio_stream = streams.filter(type='audio').order_by('bitrate').desc().first()
+            audio_stream = streams.get_audio_only()
         vid_file = video_stream.download(output_path=tmp_dir, filename="vid", max_retries=retries)
         audio_file = audio_stream.download(output_path=tmp_dir, filename="audio", max_retries=retries)
         fpath = ""
         if path:
             fpath = path + "/"
         fpath = fpath + title + ".mp4"
-        ffmpeg.output(ffmpeg.input(vid_file), ffmpeg.input(audio_file), fpath).run(quiet=True)
+        
+        ff = FFmpeg (
+            inputs={vid_file: None, audio_file: None},
+            outputs={fpath: '-c:v h264 -c:a ac3'}
+        )
+        null = open(os.devnull, 'w')
+        ff.run(stdout=null,stderr=null)
+        null.close()
+        
     return False
 
 def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
