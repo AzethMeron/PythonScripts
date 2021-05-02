@@ -109,15 +109,15 @@ def merge_streams(output_path, video_stream_filename, audio_stream_filename):
 
 # TODO major feature  - support for non-progressive formats
 def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
+    title = re.sub(r'\W+', ' ', video.title)
+    if path:
+        if glob.glob(path + "/" + title + ".*"):
+            return False
+    else:
+        if glob.glob(title + ".*"):
+            return False
+    
     for extension in [ 'webm', 'mp4' ]:
-        title = re.sub(r'\W+', ' ', video.title)
-        if path:
-            if glob.glob(path + "/" + title + ".*"):
-                return False
-        else:
-            if glob.glob(title + ".*"):
-                return False
-        video_stream = None
         streams = video.streams
         
         video_stream = get_video_stream(streams.filter(type='video'), target_res, extension)
