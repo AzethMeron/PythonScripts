@@ -2,9 +2,12 @@
 from pytube import YouTube
 from pytube import Playlist
 import os
+import glob
 from time import sleep
 from multiprocessing import Process
 import configparser
+import shutil
+import ffmpeg
 global PLAYLIST_URLS, VIDEO_URLS, TARGET_RESOLUTION, NUMBER_OF_THREADS, DELAY_MS, MAX_RETRIES
 # by Jakub Grzana
 
@@ -55,13 +58,15 @@ DELAY_MS = int(config['Default']['DELAY_MS']) if 'DELAY_MS' in config['Default']
 # I'm not sure what this does, i think pytube automatically retries downloading on error, and here's number of such retries
 MAX_RETRIES = int(config['Default']['MAX_RETRIES']) if 'MAX_RETRIES' in config['Default'] else 50
 
-
+# for audio
+TARGET_BITRATE = int(config['Default']['TARGET_BITRATE']) if 'TARGET_BITRATE' in config['Default'] else None
 
 # Requirements:
 #   Python 3.9.0
 #   pytube 10.7.2
+#   ffmpeg, don't know the version
 
-verbose_downloads = int(config['Default']['VERBOSE_DOWNLOADS']) if 'VERBOSE_DOWNLOADS' in config['Default'] else 2 # each Xth prompt will be displayed
+verbose_downloads = int(config['Default']['VERBOSE_DOWNLOADS']) if 'VERBOSE_DOWNLOADS' in config['Default'] else 1 # each Xth prompt will be displayed
 
 def split_list(a, n):
     k, m = divmod(len(a), n)
@@ -73,22 +78,43 @@ def EnsureDir(path):
         os.makedirs(path)
 
 # TODO major feature  - support for non-progressive formats
-def DownloadVideo(path, video, target_res, retries):
-    title = video.title
-    stream = None
+def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
+    title = video.title 
+    if path:
+        if glob.glob(path + "/" + title + ".*"):
+            return False
+    else:
+        if glob.glob(title + ".*"):
+            return False
+    video_stream = None
+    streams = video.streams
     if target_res:
-        stream = video.streams.filter(progressive=True).filter(res=target_res).order_by('resolution')
-    if not stream:
-        stream = video.streams.filter(progressive=True).order_by('resolution')
-    if not stream:
-        print("Error in video " + title + ", no valid stream found")
-        return True
-    stream.desc().first().download(output_path=path, filename=title, max_retries=retries)
+        video_stream = streams.filter(progressive=True).filter(res=target_res).order_by('resolution')
+        if not video_stream:
+            video_stream = streams.filter(res=target_res).order_by('resolution')
+    if not video_stream:
+        video_stream = streams.order_by('resolution')
+    video_stream = video_stream.desc().first()
+    if video_stream.is_progressive:
+        video_stream.download(output_path=path, filename=title, max_retries=retries)
+    else:
+        audio_stream = None
+        audio_stream = streams.filter(type='audio').filter(abr=target_bitrate).first()
+        if not audio_stream:
+            audio_stream = streams.filter(type='audio').order_by('bitrate').desc().first()
+        vid_file = video_stream.download(output_path=tmp_dir, filename="vid", max_retries=retries)
+        audio_file = audio_stream.download(output_path=tmp_dir, filename="audio", max_retries=retries)
+        fpath = ""
+        if path:
+            fpath = path + "/"
+        fpath = fpath + title.replace('/',' ') + ".mp4"
+        ffmpeg.output(ffmpeg.input(vid_file), ffmpeg.input(audio_file), fpath).run(quiet=True)
     return False
 
-def ProcessVidList(path, videos, target_res, delay, retries):
+def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
     pid = os.getpid()
     i = 0
+    EnsureDir(str(pid))
     for video in videos:
         try:
             video.check_availability()
@@ -98,10 +124,11 @@ def ProcessVidList(path, videos, target_res, delay, retries):
         if (i%verbose_downloads) == 0:
             print("Subprocess " + str(pid) + ": downloading " + str(i+1) + "/" + str(len(videos)))
         i = i + 1
-        if DownloadVideo(path, video, target_res, retries):
+        if DownloadVideo(path, video, target_res, retries, str(pid), target_bitrate):
             continue
         if delay > 0:
             sleep(delay*0.001)
+    shutil.rmtree(str(pid))
 
 def DownloadPlaylist(playlist, target_res):
     EnsureDir(playlist.title)
@@ -109,7 +136,7 @@ def DownloadPlaylist(playlist, target_res):
     splitted = list(split_list(list_of_vidz, NUMBER_OF_THREADS))
     threads = []
     for vid_list in splitted:
-        thread = Process(target=ProcessVidList, args=(playlist.title, vid_list, target_res, DELAY_MS, MAX_RETRIES,))
+        thread = Process(target=ProcessVidList, args=(playlist.title, vid_list, target_res, DELAY_MS, MAX_RETRIES, TARGET_BITRATE,))
         thread.start()
         threads.append(thread)
     for thread in threads:
@@ -118,7 +145,9 @@ def DownloadPlaylist(playlist, target_res):
 if __name__ == '__main__':
     for video in [ YouTube(url) for url in VIDEO_URLS ]:
         print("Downloading video: " + video.title)
-        DownloadVideo(None, video, TARGET_RESOLUTION, MAX_RETRIES)
+        EnsureDir('temp')
+        DownloadVideo(None, video, TARGET_RESOLUTION, MAX_RETRIES, 'temp', TARGET_BITRATE)
+        shutil.rmtree('temp')
     for playlist in [ Playlist(url) for url in PLAYLIST_URLS ]:
         print("Downloading playlist: " + playlist.title)
         DownloadPlaylist(playlist, TARGET_RESOLUTION)
