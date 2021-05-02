@@ -118,7 +118,7 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
         fpath = ""
         if path:
             fpath = path + "/"
-        fpath = fpath + title + ".mp4"
+        fpath = fpath + title + ".mkv"
         merge_streams(fpath, vid_file, audio_file)
     return False
 
