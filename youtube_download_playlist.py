@@ -79,7 +79,7 @@ def EnsureDir(path):
 
 # TODO major feature  - support for non-progressive formats
 def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
-    title = video.title 
+    title = video.title.replace('/',' ').replace('|',' ')
     if path:
         if glob.glob(path + "/" + title + ".*"):
             return False
@@ -107,7 +107,7 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
         fpath = ""
         if path:
             fpath = path + "/"
-        fpath = fpath + title.replace('/',' ') + ".mp4"
+        fpath = fpath + title + ".mp4"
         ffmpeg.output(ffmpeg.input(vid_file), ffmpeg.input(audio_file), fpath).run(quiet=True)
     return False
 
@@ -116,6 +116,7 @@ def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
     i = 0
     EnsureDir(str(pid))
     for video in videos:
+        EnsureDir(str(pid))
         try:
             video.check_availability()
         except Exception as e:
@@ -124,19 +125,24 @@ def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
         if (i%verbose_downloads) == 0:
             print("Subprocess " + str(pid) + ": downloading " + str(i+1) + "/" + str(len(videos)))
         i = i + 1
-        if DownloadVideo(path, video, target_res, retries, str(pid), target_bitrate):
+        try:
+            if DownloadVideo(path, video, target_res, retries, str(pid), target_bitrate):
+                continue
+        except Exception as e:
+            print("Omitting due to error: " + str(e))
             continue
         if delay > 0:
             sleep(delay*0.001)
-    shutil.rmtree(str(pid))
+        shutil.rmtree(str(pid))
 
 def DownloadPlaylist(playlist, target_res):
-    EnsureDir(playlist.title)
+    dir = playlist.title.replace('/',' ')
+    EnsureDir(dir)
     list_of_vidz = list(playlist.videos)
     splitted = list(split_list(list_of_vidz, NUMBER_OF_THREADS))
     threads = []
     for vid_list in splitted:
-        thread = Process(target=ProcessVidList, args=(playlist.title, vid_list, target_res, DELAY_MS, MAX_RETRIES, TARGET_BITRATE,))
+        thread = Process(target=ProcessVidList, args=(dir, vid_list, target_res, DELAY_MS, MAX_RETRIES, TARGET_BITRATE,))
         thread.start()
         threads.append(thread)
     for thread in threads:
