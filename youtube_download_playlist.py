@@ -160,10 +160,10 @@ def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
         RemoveDir(str(pid))
         sleep(delay*0.001 + 0.005)
 
-def DownloadPlaylist(playlist, target_res):
-    dir = playlist.title.replace('/',' ')
+def DownloadPlaylist(title, videos, target_res):
+    dir = title.replace('/',' ')
     EnsureDir(dir)
-    list_of_vidz = list(playlist.videos)
+    list_of_vidz = list(videos)
     splitted = list(split_list(list_of_vidz, NUMBER_OF_THREADS))
     threads = []
     for vid_list in splitted:
@@ -174,11 +174,12 @@ def DownloadPlaylist(playlist, target_res):
         thread.join()
 
 if __name__ == '__main__':
-    for video in [ YouTube(url) for url in VIDEO_URLS ]:
-        print("Downloading video: " + video.title)
-        EnsureDir('temp')
-        DownloadVideo(None, video, TARGET_RESOLUTION, MAX_RETRIES, 'temp', TARGET_BITRATE)
-        shutil.rmtree('temp')
+
+    vidlist = [ YouTube(url) for url in VIDEO_URLS ]
+    if len(vidlist) > 0:
+        print("Downloading singular videos to videos/ directory")
+        DownloadPlaylist('videos', vidlist, TARGET_RESOLUTION)
+        
     for playlist in [ Playlist(url) for url in PLAYLIST_URLS ]:
         print("Downloading playlist: " + playlist.title)
-        DownloadPlaylist(playlist, TARGET_RESOLUTION)
+        DownloadPlaylist(playlist.title, playlist.videos, TARGET_RESOLUTION)
