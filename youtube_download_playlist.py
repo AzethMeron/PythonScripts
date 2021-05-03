@@ -62,6 +62,9 @@ MAX_RETRIES = int(config['Default']['MAX_RETRIES']) if 'MAX_RETRIES' in config['
 # for audio
 TARGET_BITRATE = int(config['Default']['TARGET_BITRATE']) if 'TARGET_BITRATE' in config['Default'] else None
 
+# WIP
+CONVERT_TO_AUDIO = int(config['Default']['CONVERT_TO_AUDIO']) if 'CONVERT_TO_AUDIO' in config['Default'] else 0
+
 # Requirements:
 #   Python 3.9.0
 #   pytube 10.7.2
@@ -107,8 +110,14 @@ def merge_streams(output_path, video_stream_filename, audio_stream_filename):
         acodec='copy',
     ).run(quiet=True)
 
-# TODO major feature  - support for non-progressive formats
+def convert_to_audio(output_path, audio_stream_filename):
+    ffmpeg.input(audio_stream_filename).output(output_path).run(quiet=True)
+
+
 def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
+    streams = video.streams
+    
+    # Managing title - it can't have any special characters, only letters - and checking if this video (with any extension) is already downloaded
     title = re.sub(r'\W+', ' ', video.title)
     if path:
         if glob.glob(path + "/" + title + ".*"):
@@ -117,9 +126,18 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
         if glob.glob(title + ".*"):
             return False
     
-    for extension in [ 'webm', 'mp4' ]:
-        streams = video.streams
-        
+    # If you want to convert those videos into mp3
+    if CONVERT_TO_AUDIO:
+        audio_stream = get_audio_stream(streams.filter(type='audio'), target_bitrate, None)
+        fpath = ""
+        if path:
+            fpath = path + "/"
+        fpath = fpath + title + ".aac"
+        convert_to_audio(fpath, audio_stream.download(output_path=tmp_dir, filename="audio", max_retries=retries))
+        return False
+    
+    # Typical case 
+    for extension in [ 'webm', 'mp4' ]:    
         video_stream = get_video_stream(streams.filter(type='video'), target_res, extension)
         
         if not video_stream:
@@ -137,7 +155,9 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
             fpath = fpath + title + "." + extension
             merge_streams(fpath, vid_file, audio_file)
         return False
-    print("Couldn't find proper streams for none of supported extensions")
+        
+    # Shouldn't be possible, but we prob want to display error if that happens for any reason
+    print("Couldn't find proper streams for none of supported extensions: " + str(video.title))
 
 def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
     pid = os.getpid()
@@ -156,7 +176,7 @@ def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
             EnsureDir(str(pid))
             DownloadVideo(path, video, target_res, retries, str(pid), target_bitrate)
         except Exception as e:
-            print("Omitting due to error: " + str(e))
+            print("Omitting due to error: " + str(e) + ", video name: " + str(video.title))
         RemoveDir(str(pid))
         sleep(delay*0.001 + 0.005)
 
