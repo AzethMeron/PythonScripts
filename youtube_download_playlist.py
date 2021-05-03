@@ -9,7 +9,7 @@ from multiprocessing import Process
 import configparser
 import shutil
 import re
-global PLAYLIST_URLS, VIDEO_URLS, TARGET_RESOLUTION, NUMBER_OF_THREADS, DELAY_MS, MAX_RETRIES
+global PLAYLIST_URLS, VIDEO_URLS, TARGET_RESOLUTION, NUMBER_OF_THREADS, DELAY_MS, MAX_RETRIES, CONVERT_TO_AUDIO
 # by Jakub Grzana
 
 # Simple Python script to download videos and playlists from youtube, with usage of multiprocessing
