@@ -111,7 +111,7 @@ def merge_streams(output_path, video_stream_filename, audio_stream_filename):
     ).run(quiet=True)
 
 def convert_to_audio(output_path, audio_stream_filename):
-    ffmpeg.input(audio_stream_filename).output(output_path).run(quiet=True)
+    ffmpeg.input(audio_stream_filename).output(output_path, acodec="copy").run(quiet=True)
 
 
 def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
@@ -128,7 +128,7 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
     
     # If you want to convert those videos into mp3
     if CONVERT_TO_AUDIO:
-        audio_stream = get_audio_stream(streams.filter(type='audio'), target_bitrate, None)
+        audio_stream = get_audio_stream(streams.filter(type='audio'), target_bitrate, 'mp4')
         fpath = ""
         if path:
             fpath = path + "/"
