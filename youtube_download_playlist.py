@@ -170,7 +170,7 @@ def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
             sleep(delay*0.001 + 0.005)
             continue
         if (i%verbose_downloads) == 0:
-            print("Subprocess " + str(pid) + ": downloading " + str(i+1) + "/" + str(len(videos)))
+            print("Subprocess " + str(pid) + ": downloading " + video.title + " " + str(i+1) + "/" + str(len(videos)))
         i = i + 1
         try:
             EnsureDir(str(pid))
@@ -195,11 +195,11 @@ def DownloadPlaylist(title, videos, target_res):
 
 if __name__ == '__main__':
 
-    vidlist = [ YouTube(url) for url in VIDEO_URLS ]
-    if len(vidlist) > 0:
+    if len(VIDEO_URLS) > 0:
+        vidlist = ( YouTube(url) for url in VIDEO_URLS )
         print("Downloading singular videos to videos/ directory")
         DownloadPlaylist('videos', vidlist, TARGET_RESOLUTION)
         
-    for playlist in [ Playlist(url) for url in PLAYLIST_URLS ]:
+    for playlist in ( Playlist(url) for url in PLAYLIST_URLS ):
         print("Downloading playlist: " + playlist.title)
         DownloadPlaylist(playlist.title, playlist.videos, TARGET_RESOLUTION)

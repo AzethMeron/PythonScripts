@@ -28,8 +28,8 @@ def EnsureDir(path):
 verbose_scanning = 1000
 verbose_downloading = 100 
 # year, month, day
-after_date = datetime.datetime(2021,1,4)
-before_date = datetime.datetime(2021,4,28)
+after_date = datetime.datetime(2021,5,2)
+before_date = datetime.datetime(2021,5,30)
 
 async def Download(client, guild, after, before):
     print("Selected guild: " + guild.name)
@@ -88,6 +88,6 @@ async def on_ready():
     print("\n\n")
     print("Done. Please shutdown this terminal now")
 
-
-print("Startup finished. Connecting...")
-DiscordClient.run(os.getenv('DISCORD_TOKEN'))
+if __name__ == '__main__':
+    print("Startup finished. Connecting...")
+    DiscordClient.run(os.getenv('DISCORD_TOKEN'))
