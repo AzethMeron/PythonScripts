@@ -1,0 +1,1 @@
+Assuming you are using Python 3, you need to either use b'1234!' or encode the string to get byte string using str.encode() this is useful if you have the password saved as a string passwd = '1234!' then you can use:
