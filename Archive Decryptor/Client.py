@@ -103,13 +103,20 @@ def send_results(conn, result):
 
 def main(ip, port, thread_num, verbose):
     EnsureDir(".tmp")
-    while True:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((ip, port))
-            found = pickle.loads(s.recv(8)) # receive "found" from server
-            print(found)
-            if found:
-                break
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.connect((ip, port))
+        filename = s.recv(1000)
+        filelength = pickle.loads(s.recv(1000))
+        filedata = s.recv(filelength+1)
+        f = open(filename, "wb")
+        f.write(filedata)
+        f.close()
+        max_num = pickle.loads(s.recv(1000))
+        for i in range(1,max_num):
+            length = pickle.loads(s.recv(1000))
+            passwords = pickle.loads(s.recv(length+1))
+            result = start(filename.decode("utf-8"), passwords, ".tmp", thread_num, verbose)
+            s.sendall(pickle.dumps(result))
     RemoveDir(".tmp")
 
 ###########################################################################
@@ -123,6 +130,6 @@ parser.add_argument('-verbose', required=False, metavar='verbose', help='Number 
 if __name__ == '__main__':
     args = parser.parse_args()
     thread_num = int(args.threads) if args.threads else multiprocessing.cpu_count()
-    verbose = int(args.verbose) if args.verbose else 100000
+    verbose = int(args.verbose) if args.verbose else 10000
     port = int(args.port) if args.port else 65432
     main(args.ip, port, thread_num, verbose)

@@ -39,17 +39,26 @@ def main(ip, port, filename, charset, min_len, max_len, passwords_per_thread):
     file = (filename, open(filename,"rb").read()) # (filename, ByteString)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as main_socket:
         main_socket.bind((ip, port))
-        main_socket.settimeout(10)
+        #main_socket.settimeout(10)
         main_socket.listen()
-        found = False
-        while True:
-            try:
-                conn, addr = main_socket.accept()
-                conn.send(pickle.dumps(found))
-                print("Sent")
-            except Exception as e:
-                print(e)
-                continue
+        try:
+            conn, addr = main_socket.accept()
+            conn.sendall(file[0].encode())
+            conn.sendall(pickle.dumps(len(file[1])))
+            conn.sendall(file[1])
+            per_bulk = passwords_per_thread
+            max_num = 1+int(calculate_number_of_passwords(min_len,min_len,charset) / per_bulk)
+            conn.sendall(pickle.dumps(max_num))
+            for i in range(1, max_num):
+                passwords = [ i for i in get_passwords(generator, per_bulk) if i != [] ]
+                data = pickle.dumps(passwords)
+                conn.sendall(pickle.dumps(len(data)))
+                conn.sendall(data)
+                result = pickle.loads(conn.recv(1024))
+                if result != "":
+                    return result
+        except Exception as e:
+            print(e)
 
 ###########################################################################
 
@@ -59,7 +68,7 @@ if __name__ == '__main__':
     print("IP of this server: " + ip)
     port = 65432
     filename = "a.zip"
-    main(ip, port, filename, charset, 4, 4, 500000)
+    print(main(ip, port, filename, charset, 4, 4, 50000))
     
     
     
