@@ -19,27 +19,9 @@ def split_list(a, n):
 
 ###########################################################################
 
-# min_len - number, lower boundary for length of password (>=)
-# max_len - number, upper boundary for length of password (<=)
-# charset - list of characters ['a', 'b']
-from itertools import product as iterproduct
-def gen_passwords(min_len, max_len, charset):
-    for length in range(min_len,max_len+1):
-        for item in iterproduct(charset, repeat=length):
-            yield "".join(item)
-
-# used to calculate number of possible passwords without actually creating them
-def calculate_number_of_passwords(min_len, max_len, charset):
-    output = 0
-    for i in range(min_len, max_len+1):
-        output = output + len(charset) ** i
-    return output
-
-
-###########################################################################
-
 # filename - string, name of ZIP file
-# index - process index, for VERBOSEose output
+# process_index - process index, for VERBOSEose output
+# verbose - number of passwords, after which program will raport progress 
 # passwords - list of strings, containing all passwords to be checked
 # tmpdir - path to temporary directory. MUST BE ENSURED AND DELETED OUTSIDE OF THIS FUNCTION
 from zipfile import ZipFile
@@ -64,6 +46,7 @@ def decrypt(filename, process_index, verbose, passwords, tmppath):
 import multiprocessing
 from multiprocessing import Process, Manager
 from ctypes import c_char_p
+import time
 
 def subprocess(ret, index, verbose, filename, tmpdir, passwords, ):
     pid = os.getpid()
@@ -89,6 +72,7 @@ def start(filename, passwords, tmpdir, thread_num, verbose):
     still_alive = True
     output = None
     while still_alive:
+        time.sleep(10)
         still_alive = False
         for (thread,ret) in threads:
             if thread.is_alive():
@@ -103,18 +87,29 @@ def start(filename, passwords, tmpdir, thread_num, verbose):
             thread.terminate()
     return output
 
-def contact_server(ip, tmpdir, thread_num):
+###########################################################################
+
+import socket
+import pickle
+
+def init_connection(conn, thread_num):
     return 1
 
+def run_task(conn, thread_num, verbose):
+    return 1
 
-def main(ip, thread_num, verbose):
-    thread_num = int(thread_num) if thread_num else multiprocessing.cpu_count()
-    verbose = int(verbose) if verbose else 10000
+def send_results(conn, result):
+    return 1
+
+def main(ip, port, thread_num, verbose):
     EnsureDir(".tmp")
-    #charset = [ i for i in "abcdefghijklmnopqrstuvwxyz1234567890" ]
-    charset = [ i for i in "1234567890" ]
-    pwd = [p for p in gen_passwords(4,6,charset) ]
-    print(start("a.zip", pwd, ".tmp", thread_num, verbose))
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((ip, port))
+            found = pickle.loads(s.recv(8)) # receive "found" from server
+            print(found)
+            if found:
+                break
     RemoveDir(".tmp")
 
 ###########################################################################
@@ -122,11 +117,12 @@ def main(ip, thread_num, verbose):
 import argparse
 parser = argparse.ArgumentParser(description='Client program. Allows to connect to the server, in order to crack.')
 parser.add_argument('-ip', required=True, metavar='ip', help='IP address of the server')
+parser.add_argument('-port', required=False, metavar='port', help='IP address of the server')
 parser.add_argument('-threads', required=False, metavar='threads', help='Number of threads to be used')
 parser.add_argument('-verbose', required=False, metavar='verbose', help='Number of passwords, after which program will raport progress')
-# args.ip
 if __name__ == '__main__':
     args = parser.parse_args()
-    #charset = [ i for i in "abcdefghijklmnopqrstuvwxyz1234567890" ]
-    charset = [ i for i in "1234567890" ]
-    main(args.ip, args.threads, args.verbose)
+    thread_num = int(args.threads) if args.threads else multiprocessing.cpu_count()
+    verbose = int(args.verbose) if args.verbose else 100000
+    port = int(args.port) if args.port else 65432
+    main(args.ip, port, thread_num, verbose)
