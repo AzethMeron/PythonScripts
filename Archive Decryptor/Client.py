@@ -56,6 +56,8 @@ def subprocess(ret, index, verbose, filename, tmpdir, passwords, ):
     RemoveDir(tmppath)
     ret.value = result if result else ""
 
+# return: None if not found
+# otherwise, string with password
 def start(filename, passwords, tmpdir, thread_num, verbose):
     splitted_passwords = list(split_list(passwords, thread_num))
     threads = []
@@ -89,35 +91,35 @@ def start(filename, passwords, tmpdir, thread_num, verbose):
 
 ###########################################################################
 
-import socket
-import pickle
+#import socket
+#import pickle
 
-def init_connection(conn, thread_num):
-    return 1
+#def init_connection(conn, thread_num):
+#    return 1
 
-def run_task(conn, thread_num, verbose):
-    return 1
+#def run_task(conn, thread_num, verbose):
+#    return 1
 
-def send_results(conn, result):
-    return 1
+#def send_results(conn, result):
+#    return 1
 
-def main(ip, port, thread_num, verbose):
-    EnsureDir(".tmp")
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.connect((ip, port))
-        filename = s.recv(1000)
-        filelength = pickle.loads(s.recv(1000))
-        filedata = s.recv(filelength+1)
-        f = open(filename, "wb")
-        f.write(filedata)
-        f.close()
-        max_num = pickle.loads(s.recv(1000))
-        for i in range(1,max_num):
-            length = pickle.loads(s.recv(1000))
-            passwords = pickle.loads(s.recv(length+1))
-            result = start(filename.decode("utf-8"), passwords, ".tmp", thread_num, verbose)
-            s.sendall(pickle.dumps(result))
-    RemoveDir(".tmp")
+#def main(ip, port, thread_num, verbose):
+#    EnsureDir(".tmp")
+#    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+#        s.connect((ip, port))
+#        filename = s.recv(1000)
+#        filelength = pickle.loads(s.recv(1000))
+#        filedata = s.recv(filelength+1)
+#        f = open(filename, "wb")
+#        f.write(filedata)
+#        f.close()
+#        max_num = pickle.loads(s.recv(1000))
+#        for i in range(1,max_num):
+#            length = pickle.loads(s.recv(1000))
+#            passwords = pickle.loads(s.recv(length+1))
+#            result = start(filename.decode("utf-8"), passwords, ".tmp", thread_num, verbose)
+#            s.sendall(pickle.dumps(result))
+#    RemoveDir(".tmp")
 
 ###########################################################################
 
@@ -132,4 +134,4 @@ if __name__ == '__main__':
     thread_num = int(args.threads) if args.threads else multiprocessing.cpu_count()
     verbose = int(args.verbose) if args.verbose else 10000
     port = int(args.port) if args.port else 65432
-    main(args.ip, port, thread_num, verbose)
+    #main(args.ip, port, thread_num, verbose)
