@@ -6,10 +6,12 @@ import glob
 from time import sleep
 import ffmpeg
 from multiprocessing import Process
+from multiprocessing import Queue
 import configparser
 import shutil
 import re
 global PLAYLIST_URLS, VIDEO_URLS, TARGET_RESOLUTION, NUMBER_OF_THREADS, DELAY_MS, MAX_RETRIES, CONVERT_TO_AUDIO
+from datetime import datetime
 # by Jakub Grzana
 
 # Simple Python script to download videos and playlists from youtube, with usage of multiprocessing
@@ -157,9 +159,9 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
         return False
         
     # Shouldn't be possible, but we prob want to display error if that happens for any reason
-    print("Couldn't find proper streams for none of supported extensions: " + str(video.title))
+    raise RuntimeError("Couldn't find proper streams for none of supported extensions.")
 
-def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
+def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate, queue):
     pid = os.getpid()
     i = 0
     for video in videos:
@@ -176,9 +178,13 @@ def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate):
             EnsureDir(str(pid))
             DownloadVideo(path, video, target_res, retries, str(pid), target_bitrate)
         except Exception as e:
-            print("Omitting due to error: " + str(e) + ", video name: " + str(video.title))
+            err_mess = "Omitting due to error: " + str(e) + ", video name: " + str(video.title)
+            print(err_mess)
+            queue.put(err_mess)
+            
         RemoveDir(str(pid))
         sleep(delay*0.001 + 0.005)
+    queue.put(0)
 
 def DownloadPlaylist(title, videos, target_res):
     dir = title.replace('/',' ')
@@ -186,12 +192,24 @@ def DownloadPlaylist(title, videos, target_res):
     list_of_vidz = list(videos)
     splitted = list(split_list(list_of_vidz, NUMBER_OF_THREADS))
     threads = []
+    failures = []
     for vid_list in splitted:
-        thread = Process(target=ProcessVidList, args=(dir, vid_list, target_res, DELAY_MS, MAX_RETRIES, TARGET_BITRATE,))
+        queue = Queue()
+        thread = Process(target=ProcessVidList, args=(dir, vid_list, target_res, DELAY_MS, MAX_RETRIES, TARGET_BITRATE, queue,))
         thread.start()
-        threads.append(thread)
-    for thread in threads:
-        thread.join()
+        threads.append((thread, queue))
+    for (thread, queue) in threads:
+        while True:
+            val = queue.get()
+            if type(val) == int:
+                thread.join()
+                break
+            failures.append(val)
+    f = open("failures.txt", "a")
+    now = datetime.now().strftime("%d/%m/%Y")
+    for error in failures:
+        f.write(now + " " + error + "\n")
+    f.close()
 
 if __name__ == '__main__':
 
