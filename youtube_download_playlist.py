@@ -181,7 +181,6 @@ def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate, que
                 break
             except Exception as e:
                 err_mess = "Omitting due to error: " + str(e) + ", video name: " + str(video.title)
-                print(err_mess)
                 if i == retries:
                     print(err_mess)
                     queue.put(err_mess)
