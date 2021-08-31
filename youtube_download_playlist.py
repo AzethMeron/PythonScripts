@@ -174,14 +174,14 @@ def ProcessVidList(path, videos, target_res, delay, retries, target_bitrate, que
         if (i%verbose_downloads) == 0:
             print("Subprocess " + str(pid) + ": downloading " + video.title + " " + str(i+1) + "/" + str(len(videos)))
         i = i + 1
-        for i in range(1,retries+1):
+        for j in range(1,retries+1):
             try:
                 EnsureDir(str(pid))
                 DownloadVideo(path, video, target_res, retries, str(pid), target_bitrate)
                 break
             except Exception as e:
                 err_mess = "Omitting due to error: " + str(e) + ", video name: " + str(video.title)
-                if i == retries:
+                if j == retries:
                     print(err_mess)
                     queue.put(err_mess)
                 sleep(delay*0.001 + 0.005)
