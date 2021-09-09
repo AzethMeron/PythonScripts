@@ -28,8 +28,8 @@ def EnsureDir(path):
 verbose_scanning = 1000
 verbose_downloading = 100 
 # year, month, day
-after_date = datetime.datetime(2021,5,2)
-before_date = datetime.datetime(2021,5,30)
+after_date = datetime.datetime(2021,7,6)
+before_date = datetime.datetime(2021,8,28)
 
 async def Download(client, guild, after, before):
     print("Selected guild: " + guild.name)
@@ -39,8 +39,12 @@ async def Download(client, guild, after, before):
     for channel in guild.text_channels:
         EnsureDir(guild.name+"/"+channel.name)
         print("Scanning channel: " + channel.name)
+        i = 0
         try:
             async for message in channel.history(limit=None, after=after, before=before):
+                i = i + 1
+                if (i % verbose_scanning) == 0:
+                    print(channel.name + ": scanned " + str(i) + " messages")
                 for attached in message.attachments:
                     path = guild.name + "/" + channel.name + "/" + attached.filename
                     # dealing with multiple files with the same name
