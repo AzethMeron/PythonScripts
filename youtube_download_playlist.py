@@ -19,6 +19,9 @@ from datetime import datetime
 # In general, there's almost no error management here.
 # Comments might be outdated. Currently, files 'playlists.txt', 'videos.txt' and 'download_yt.ini' are used for input
 
+# There's weakpoint, program searches for best available streams for given extensions in order. So if it finds any usable stream for webm, then it won't bother with mp4
+# EVEN IF there's MP4 stream with better quality
+
 
 
 # PLAYLIST_URLS - list of strings, put URLs to playlists inside. 
@@ -64,12 +67,12 @@ MAX_RETRIES = int(config['Default']['MAX_RETRIES']) if 'MAX_RETRIES' in config['
 # for audio
 TARGET_BITRATE = int(config['Default']['TARGET_BITRATE']) if 'TARGET_BITRATE' in config['Default'] else None
 
-# WIP
+# should work right now
 CONVERT_TO_AUDIO = int(config['Default']['CONVERT_TO_AUDIO']) if 'CONVERT_TO_AUDIO' in config['Default'] else 0
 
 # Requirements:
 #   Python 3.9.0
-#   pytube 10.7.2
+#   pytube - up-to-date one
 #   ffmpeg, don't know the version
 
 verbose_downloads = int(config['Default']['VERBOSE_DOWNLOADS']) if 'VERBOSE_DOWNLOADS' in config['Default'] else 1 # each Xth prompt will be displayed
@@ -87,19 +90,19 @@ def RemoveDir(path):
     if os.path.exists(path):
         shutil.rmtree(path)
 
-def get_video_stream(streams, target_res, subtype):
-    s = streams.filter(subtype=subtype)
+def get_video_stream(streams, target_res, in_subtype):
+    s = streams.filter(subtype=in_subtype)
     if target_res:
         if s.filter(res = target_res):
             return s.filter(res = target_res).first()
     return s.order_by('resolution').desc().first()
     
-def get_audio_stream(streams, target_bitrate, subtype):
-    s = streams.filter(subtype=subtype)
+def get_audio_stream(streams, target_bitrate, in_subtype):
+    s = streams.filter(subtype=in_subtype)
     if target_bitrate:
         if s.filter(abr = target_bitrate):
             return s.filter(abr = target_bitrate).first()
-    return s.get_audio_only(subtype)
+    return s.get_audio_only(in_subtype)
 
 def merge_streams(output_path, video_stream_filename, audio_stream_filename):
     video = ffmpeg.input(video_stream_filename).video
@@ -146,7 +149,7 @@ def DownloadVideo(path, video, target_res, retries, tmp_dir, target_bitrate):
             continue
         
         if video_stream.is_progressive:
-            video_stream.download(output_path=path, filename=title, max_retries=retries)
+            video_stream.download(output_path=path, filename=title+"."+extension, max_retries=retries)
         else:
             audio_stream = get_audio_stream(streams.filter(type='audio'), target_bitrate, extension)
             vid_file = video_stream.download(output_path=tmp_dir, filename="vid", max_retries=retries)
@@ -214,14 +217,25 @@ def DownloadPlaylist(title, videos, target_res):
     for error in failures:
         f.write(now + " " + error + "\n")
     f.close()
+    return failures
 
 if __name__ == '__main__':
+
+    total_failures = []
 
     if len(VIDEO_URLS) > 0:
         vidlist = ( YouTube(url) for url in VIDEO_URLS )
         print("Downloading singular videos to videos/ directory")
-        DownloadPlaylist('videos', vidlist, TARGET_RESOLUTION)
+        total_failures.append(DownloadPlaylist('videos', vidlist, TARGET_RESOLUTION))
         
     for playlist in ( Playlist(url) for url in PLAYLIST_URLS ):
         print("Downloading playlist: " + playlist.title)
-        DownloadPlaylist(playlist.title, playlist.videos, TARGET_RESOLUTION)
+        total_failures.append(DownloadPlaylist(playlist.title, playlist.videos, TARGET_RESOLUTION))
+    
+    print("DOWNLOADING COMPLETE")
+    print("Ommited:")
+    for failures in total_failures:
+        for failure in failures:
+            print(failure)
+    
+    
