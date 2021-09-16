@@ -10,3 +10,6 @@ All channels are saved in separate folders, output is quite verbose and manages 
 youtube_download_playlist
 ---
 Python script to download videos/playlists from youtube. Supports multiprocessing, takes target resolution as argument.
+
+---
+Licensed under CC BY
