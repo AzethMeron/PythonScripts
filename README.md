@@ -12,7 +12,7 @@ youtube_download_playlist
 Python script to download videos/playlists from youtube. Supports multiprocessing, takes target resolution as argument.
 
 ---
-Copyright (c) 2021 Jakub Grzana (https://github.com/AzethMeron?tab=repositories) 
+Copyright (c) 2021 Jakub Grzana (https://github.com/AzethMeron) 
 
 All rights reserved.
 
